@@ -1,0 +1,66 @@
+{
+  "name": "skew-score",
+  "version": "1.0.0",
+  "description": "Quantifies document and image tilt/skew angle (-45° to +45°) using Radon projection profile analysis via Sharp. Optimized for pre-OCR document scanning, KYC ID verification, and receipt processing.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "skew",
+    "skew-score",
+    "deskew",
+    "rotation",
+    "tilt-detection",
+    "image-processing",
+    "ocr-preprocessing",
+    "kyc-document",
+    "sharp",
+    "blur-score",
+    "exposure-score",
+    "glare-score",
+    "contrast-score"
+  ],
+  "author": "Vijay Misal <misalvijay153@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vjymisal0/skew-score.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vjymisal0/skew-score/issues"
+  },
+  "homepage": "https://github.com/vjymisal0/skew-score#readme",
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
