@@ -29,7 +29,7 @@ export interface SkewOptions {
 
   /**
    * Minimum confidence score (0.0 to 1.0) required to consider skew detection valid.
-   * @default 0.25
+   * @default 0.20
    */
   minConfidence?: number;
 

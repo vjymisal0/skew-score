@@ -2,18 +2,42 @@ import sharp from 'sharp';
 import type { SkewOptions, SkewResult, SkewDetails } from './types.js';
 
 export function normalizeOptions(options?: SkewOptions): Required<SkewOptions> {
-  return {
+  const opts = {
     angleThreshold: options?.angleThreshold ?? 3.0,
     minConfidence: options?.minConfidence ?? 0.20,
     maxAngle: options?.maxAngle ?? 45,
     angleStep: options?.angleStep ?? 0.5,
     downsampleWidth: options?.downsampleWidth ?? 400
   };
+
+  if (!Number.isFinite(opts.angleThreshold) || opts.angleThreshold < 0) {
+    throw new RangeError('angleThreshold must be a finite number >= 0.');
+  }
+  if (!Number.isFinite(opts.minConfidence) || opts.minConfidence < 0 || opts.minConfidence > 1) {
+    throw new RangeError('minConfidence must be between 0 and 1.');
+  }
+  if (!Number.isFinite(opts.maxAngle) || opts.maxAngle <= 0 || opts.maxAngle > 90) {
+    throw new RangeError('maxAngle must be greater than 0 and at most 90.');
+  }
+  // A zero or negative step would never terminate the angular sweep.
+  if (!Number.isFinite(opts.angleStep) || opts.angleStep <= 0 || opts.angleStep > opts.maxAngle) {
+    throw new RangeError('angleStep must be greater than 0 and at most maxAngle.');
+  }
+  if (!Number.isInteger(opts.downsampleWidth) || opts.downsampleWidth < 16) {
+    throw new RangeError('downsampleWidth must be an integer >= 16.');
+  }
+
+  return opts;
 }
 
 /**
  * Computes horizontal projection profile variance at a specific rotation angle.
  * When text lines or document edges are aligned horizontally, the variance of row sums is maximized.
+ *
+ * Bins span the image diagonal so no edge pixels are dropped at any angle, and the
+ * variance is taken over every bin. With a constant total edge energy this makes
+ * the variance proportional to how concentrated the projection is, so perfectly
+ * aligned rows score highest instead of collapsing to zero.
  */
 function evaluateProjectionVariance(
   edgeMap: Uint8Array,
@@ -28,10 +52,10 @@ function evaluateProjectionVariance(
   const cx = width / 2;
   const cy = height / 2;
 
-  // Project onto vertical axis (row projection)
-  // Bounded buffer for projected row sums
-  const projectedRows = new Float64Array(height);
-  const countPerBin = new Int32Array(height);
+  const diagonal = Math.ceil(Math.hypot(width, height));
+  const binCount = diagonal + 1;
+  const offset = diagonal / 2;
+  const projectedRows = new Float64Array(binCount);
 
   for (let y = 0; y < height; y++) {
     const dy = y - cy;
@@ -41,33 +65,22 @@ function evaluateProjectionVariance(
       if (val === 0) continue;
 
       const dx = x - cx;
-      // Rotated Y coordinate: -dx * sin + dy * cos + cy
-      const rotY = Math.round(-dx * sin + dy * cos + cy);
-
-      if (rotY >= 0 && rotY < height) {
-        projectedRows[rotY] += val;
-        countPerBin[rotY] += 1;
-      }
+      // Rotated Y coordinate, shifted into the diagonal-sized bin range
+      const bin = Math.round(-dx * sin + dy * cos + offset);
+      projectedRows[bin]! += val;
     }
   }
 
-  // Calculate variance of non-empty bins
   let sum = 0;
   let sumSq = 0;
-  let count = 0;
-
-  for (let i = 0; i < height; i++) {
-    if (countPerBin[i]! > 0) {
-      const val = projectedRows[i]!;
-      sum += val;
-      sumSq += val * val;
-      count++;
-    }
+  for (let i = 0; i < binCount; i++) {
+    const val = projectedRows[i]!;
+    sum += val;
+    sumSq += val * val;
   }
 
-  if (count <= 1) return 0;
-  const mean = sum / count;
-  return (sumSq / count) - (mean * mean);
+  const mean = sum / binCount;
+  return (sumSq / binCount) - (mean * mean);
 }
 
 /**
@@ -121,25 +134,23 @@ export async function analyzeSkew(
   let bestAngle = 0;
   let maxVariance = -1;
   let minVariance = Infinity;
-  let zeroAngleVariance = 0;
 
   const startAngle = -opts.maxAngle;
   const endAngle = opts.maxAngle;
   const step = opts.angleStep;
 
-  const variances: { angle: number; variance: number }[] = [];
-
   for (let angle = startAngle; angle <= endAngle; angle += step) {
     const roundedAngle = Math.round(angle * 100) / 100;
     const variance = evaluateProjectionVariance(edges, width, height, roundedAngle);
 
-    variances.push({ angle: roundedAngle, variance });
-
-    if (roundedAngle === 0) {
-      zeroAngleVariance = variance;
-    }
-
-    if (variance > maxVariance) {
+    // Neighbouring angles can project identically on small images; prefer the
+    // angle closest to 0 so a straight document is not reported as tilted.
+    const tolerance = Math.max(1e-9, Math.abs(maxVariance) * 1e-12);
+    const isTie = Math.abs(variance - maxVariance) <= tolerance;
+    if (
+      (variance > maxVariance && !isTie) ||
+      (isTie && Math.abs(roundedAngle) < Math.abs(bestAngle))
+    ) {
       maxVariance = variance;
       bestAngle = roundedAngle;
     }
@@ -150,7 +161,7 @@ export async function analyzeSkew(
 
   // Compute confidence based on contrast between peak variance and baseline variance
   const baseline = (minVariance === Infinity || minVariance < 0) ? 0 : minVariance;
-  const peakContrast = maxVariance > baseline && baseline > 0
+  const peakContrast = maxVariance > baseline
     ? (maxVariance - baseline) / maxVariance
     : 0;
 
@@ -162,7 +173,7 @@ export async function analyzeSkew(
 
   // Normalized score (0.0 = 0 deg, 1.0 = 45+ deg)
   const score = Number(Math.min(1.0, absAngle / 45).toFixed(4));
-  const isSkewed = absAngle >= opts.angleThreshold;
+  const isSkewed = absAngle > opts.angleThreshold;
 
   // Corrective rotation is opposite of detected angle
   const correctiveRotation = finalAngle === 0 ? 0 : Number((-finalAngle).toFixed(2));

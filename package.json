@@ -1,6 +1,6 @@
 {
   "name": "skew-score",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Quantifies document and image tilt/skew angle (-45° to +45°) using Radon projection profile analysis via Sharp. Optimized for pre-OCR document scanning, KYC ID verification, and receipt processing.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -16,7 +16,8 @@
   "files": [
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsup",
@@ -24,7 +25,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run typecheck && npm run build && npm test"
   },
   "keywords": [
     "skew",
@@ -52,15 +53,22 @@
   "homepage": "https://github.com/vjymisal0/skew-score#readme",
   "license": "MIT",
   "dependencies": {
-    "sharp": "^0.33.5"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
+    "@types/node": "^26.6.4",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.3"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.9.0"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
+  },
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
   }
 }
