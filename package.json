@@ -1,6 +1,6 @@
 {
   "name": "skew-score",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Quantifies document and image tilt/skew angle (-45° to +45°) using Radon projection profile analysis via Sharp. Optimized for pre-OCR document scanning, KYC ID verification, and receipt processing.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -8,10 +8,16 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
